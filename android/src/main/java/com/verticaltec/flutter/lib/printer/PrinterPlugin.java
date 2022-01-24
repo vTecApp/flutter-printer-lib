@@ -34,6 +34,7 @@ import com.rt.printerlibrary.cmd.EscFactory;
 import com.rt.printerlibrary.connect.PrinterInterface;
 import com.rt.printerlibrary.enumerate.BmpPrintMode;
 import com.rt.printerlibrary.enumerate.CommonEnum;
+import com.rt.printerlibrary.enumerate.ConnectStateEnum;
 import com.rt.printerlibrary.enumerate.SpeedEnum;
 import com.rt.printerlibrary.exception.SdkException;
 import com.rt.printerlibrary.factory.cmd.CmdFactory;
@@ -67,11 +68,11 @@ public class PrinterPlugin implements FlutterPlugin, MethodCallHandler {
 
     private Context mContext;
     private MethodChannel mChannel;
-    private Result mResult;
 
     private CountDownLatch mPrinterSignal;
     private PrinterFactory mPrinterFactory;
     private RTPrinter mRtPrinter;
+    private boolean mIsConnected;
 
     @Override
     public void onAttachedToEngine(@NonNull FlutterPluginBinding flutterPluginBinding) {
@@ -88,10 +89,9 @@ public class PrinterPlugin implements FlutterPlugin, MethodCallHandler {
 
     @Override
     public void onMethodCall(@NonNull MethodCall call, @NonNull Result result) {
-        mResult = result;
         switch (call.method) {
             case "printBill":
-                printBill(call);
+                printBill(call, result);
                 break;
             default:
                 result.notImplemented();
@@ -112,10 +112,14 @@ public class PrinterPlugin implements FlutterPlugin, MethodCallHandler {
         PrinterObserverManager.getInstance().add(new PrinterObserver() {
             @Override
             public void printerObserverCallback(PrinterInterface printerInterface, int state) {
-                if (state == CommonEnum.CONNECT_STATE_SUCCESS) {
-                    Log.d(TAG, "Connected");
-                }
                 mPrinterSignal.countDown();
+                if (state == CommonEnum.CONNECT_STATE_SUCCESS) {
+                    mIsConnected = true;
+                    Log.d(TAG, "Connected");
+                }else{
+                    mIsConnected = false;
+                    Log.d(TAG, "Not connect");
+                }
             }
 
             @Override
@@ -124,7 +128,7 @@ public class PrinterPlugin implements FlutterPlugin, MethodCallHandler {
         });
     }
 
-    private void printBill(MethodCall call) {
+    private void printBill(MethodCall call, Result result) {
         final String printerName = call.argument("printerName");
         final int tcpPort = call.argument("tcpPort");
         final String content = call.argument("content");
@@ -136,19 +140,26 @@ public class PrinterPlugin implements FlutterPlugin, MethodCallHandler {
             printerInterface.setConfigObject(wiFiConfigBean);
             mRtPrinter.setPrinterInterface(printerInterface);
 
-            mRtPrinter.connect(wiFiConfigBean);
-            mPrinterSignal.await(); // wait for connection signal
-
-            Html2Bitmap build = new Html2Bitmap.Builder()
-                    .setContext(mContext)
-                    .setContent(WebViewContent.html(content))
-                    .setStrictMode(true)
-                    .setTextZoom(175)
-                    .setBitmapWidth(600)
-                    .build();
-            Bitmap b = build.getBitmap();
-
             try {
+                mRtPrinter.connect(wiFiConfigBean);
+                Log.d(TAG, "Before await");
+                mPrinterSignal.await(); // wait for connection signal
+                Log.d(TAG, "After await");
+
+                if(!mIsConnected){
+                    result.error("99", "Can't connect to printer!", null);
+                    return;
+                }
+
+                Html2Bitmap build = new Html2Bitmap.Builder()
+                        .setContext(mContext)
+                        .setContent(WebViewContent.html(content))
+                        .setStrictMode(true)
+                        .setTextZoom(150)
+                        .setBitmapWidth(576)
+                        .build();
+                Bitmap b = build.getBitmap();
+
                 CmdFactory escFac = new EscFactory();
                 Cmd escCmd = escFac.create();
                 escCmd.append(escCmd.getHeaderCmd());
@@ -164,6 +175,7 @@ public class PrinterPlugin implements FlutterPlugin, MethodCallHandler {
                     escCmd.append(escCmd.getBitmapCmd(bitmapSetting, b));
                 } catch (SdkException e) {
                     Log.e(TAG, "Set bitmap error: " + e.getMessage());
+                    result.error("99", "Set bitmap error: " + e.getMessage(), null);
                 } finally {
                     b.recycle();
                 }
@@ -175,14 +187,16 @@ public class PrinterPlugin implements FlutterPlugin, MethodCallHandler {
                 escCmd.append(escCmd.getAllCutCmd());
 
                 mRtPrinter.writeMsg(escCmd.getAppendCmds());
-                mResult.success("Print success");
+                result.success("Print success");
             } catch (Exception e) {
-                e.printStackTrace();
+                Log.e(TAG, "Error: " + e.getMessage());
+                result.error("99", e.getMessage(), null);
             } finally {
-                mRtPrinter.disConnect();
+                //mRtPrinter.disConnect();
             }
         } catch (Exception e) {
-            Log.e(TAG, e.getMessage());
+            Log.e(TAG, "Error: " + e.getMessage());
+            result.error("99", e.getMessage(), null);
         }
     }
 }
