@@ -147,6 +147,8 @@ public class PrinterPlugin implements FlutterPlugin, MethodCallHandler {
         final String printerName = call.argument("printerName");
         final int tcpPort = call.argument("tcpPort");
         final String content = call.argument("content");
+        final int scale = call.argument("scale");
+        final int bitmapWidth = call.argument("bitmapWidth");
 
         try {
             WiFiConfigBean wiFiConfigBean = new WiFiConfigBean(printerName, tcpPort);
@@ -170,8 +172,8 @@ public class PrinterPlugin implements FlutterPlugin, MethodCallHandler {
                         .setContext(mContext)
                         .setContent(WebViewContent.html(content))
                         .setStrictMode(true)
-                        .setTextZoom(150)
-                        .setBitmapWidth(576)
+                        .setTextZoom(scale)
+                        .setBitmapWidth(bitmapWidth)
                         .build();
                 Bitmap b = build.getBitmap();
 
@@ -185,7 +187,6 @@ public class PrinterPlugin implements FlutterPlugin, MethodCallHandler {
 
                 BitmapSetting bitmapSetting = new BitmapSetting();
                 bitmapSetting.setBmpPrintMode(BmpPrintMode.MODE_SINGLE_COLOR);
-                bitmapSetting.setBimtapLimitWidth(72 * 8);
                 try {
                     escCmd.append(escCmd.getBitmapCmd(bitmapSetting, b));
                 } catch (SdkException e) {
