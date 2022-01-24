@@ -101,6 +101,8 @@ public class PrinterPlugin implements FlutterPlugin, MethodCallHandler {
 
     @Override
     public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
+        Log.d(TAG, "onDetachedFromEngine");
+        releasePrinter();
         mChannel.setMethodCallHandler(null);
     }
 
@@ -109,23 +111,36 @@ public class PrinterPlugin implements FlutterPlugin, MethodCallHandler {
         mPrinterFactory = new UniversalPrinterFactory();
         mRtPrinter = mPrinterFactory.create();
 
-        PrinterObserverManager.getInstance().add(new PrinterObserver() {
-            @Override
-            public void printerObserverCallback(PrinterInterface printerInterface, int state) {
-                if (state == CommonEnum.CONNECT_STATE_SUCCESS) {
-                    mIsConnected = true;
-                    Log.d(TAG, "Connected");
-                }else{
-                    mIsConnected = false;
-                    Log.d(TAG, "Not connect");
-                }
-                mPrinterSignal.countDown();
-            }
+        PrinterObserverManager.getInstance().add(mPrinterObserver);
+    }
 
-            @Override
-            public void printerReadMsgCallback(PrinterInterface printerInterface, byte[] bytes) {
+    private PrinterObserver mPrinterObserver = new PrinterObserver() {
+        @Override
+        public void printerObserverCallback(PrinterInterface printerInterface, int state) {
+            if (state == CommonEnum.CONNECT_STATE_SUCCESS) {
+                mIsConnected = true;
+                Log.d(TAG, "Connected");
+            }else{
+                mIsConnected = false;
+                Log.d(TAG, "Not connect");
             }
-        });
+            mPrinterSignal.countDown();
+        }
+
+        @Override
+        public void printerReadMsgCallback(PrinterInterface printerInterface, byte[] bytes) {
+        }
+    };
+
+    private void releasePrinter(){
+        try{
+            mRtPrinter.disConnect();
+        }catch (Exception e){
+            e.printStackTrace();
+        }finally {
+            PrinterObserverManager.getInstance().remove(mPrinterObserver);
+        }
+        Log.d(TAG, "release printer");
     }
 
     private void printBill(MethodCall call, Result result) {
@@ -191,8 +206,6 @@ public class PrinterPlugin implements FlutterPlugin, MethodCallHandler {
             } catch (Exception e) {
                 Log.e(TAG, "Error: " + e.getMessage());
                 result.error("99", e.getMessage(), null);
-            } finally {
-                mRtPrinter.disConnect();
             }
         } catch (Exception e) {
             Log.e(TAG, "Error: " + e.getMessage());
