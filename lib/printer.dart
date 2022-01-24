@@ -13,7 +13,7 @@ class Printer {
   }
 
   static _customizeContent(String content) {
-    content = content.replaceAll('70mm', '144mm');
+    content = content.replaceAll('70mm', '140mm');
     content = content.replaceAll(
         '<hr/>', '<hr style="border-top:2px solid black;"/>');
     return content;

@@ -112,7 +112,6 @@ public class PrinterPlugin implements FlutterPlugin, MethodCallHandler {
         PrinterObserverManager.getInstance().add(new PrinterObserver() {
             @Override
             public void printerObserverCallback(PrinterInterface printerInterface, int state) {
-                mPrinterSignal.countDown();
                 if (state == CommonEnum.CONNECT_STATE_SUCCESS) {
                     mIsConnected = true;
                     Log.d(TAG, "Connected");
@@ -120,6 +119,7 @@ public class PrinterPlugin implements FlutterPlugin, MethodCallHandler {
                     mIsConnected = false;
                     Log.d(TAG, "Not connect");
                 }
+                mPrinterSignal.countDown();
             }
 
             @Override
@@ -192,7 +192,7 @@ public class PrinterPlugin implements FlutterPlugin, MethodCallHandler {
                 Log.e(TAG, "Error: " + e.getMessage());
                 result.error("99", e.getMessage(), null);
             } finally {
-                //mRtPrinter.disConnect();
+                mRtPrinter.disConnect();
             }
         } catch (Exception e) {
             Log.e(TAG, "Error: " + e.getMessage());
