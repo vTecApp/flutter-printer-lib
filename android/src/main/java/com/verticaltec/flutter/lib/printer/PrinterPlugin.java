@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.PaintFlagsDrawFilter;
 import android.net.nsd.NsdManager;
@@ -27,6 +28,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 
 import com.izettle.html2bitmap.Html2Bitmap;
+import com.izettle.html2bitmap.Html2BitmapConfigurator;
 import com.izettle.html2bitmap.content.WebViewContent;
 import com.rt.printerlibrary.bean.WiFiConfigBean;
 import com.rt.printerlibrary.cmd.Cmd;
@@ -120,7 +122,7 @@ public class PrinterPlugin implements FlutterPlugin, MethodCallHandler {
             if (state == CommonEnum.CONNECT_STATE_SUCCESS) {
                 mIsConnected = true;
                 Log.d(TAG, "Connected");
-            }else{
+            } else {
                 mIsConnected = false;
                 Log.d(TAG, "Not connect");
             }
@@ -132,17 +134,18 @@ public class PrinterPlugin implements FlutterPlugin, MethodCallHandler {
         }
     };
 
-    private void releasePrinter(){
-        try{
+    private void releasePrinter() {
+        try {
             mRtPrinter.disConnect();
-        }catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
-        }finally {
+        } finally {
             PrinterObserverManager.getInstance().remove(mPrinterObserver);
         }
         Log.d(TAG, "release printer");
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.N)
     private void printBill(MethodCall call, Result result) {
         final String printerName = call.argument("printerName");
         final int tcpPort = call.argument("tcpPort");
@@ -163,19 +166,29 @@ public class PrinterPlugin implements FlutterPlugin, MethodCallHandler {
                 mPrinterSignal.await(); // wait for connection signal
                 Log.d(TAG, "After await");
 
-                if(!mIsConnected){
+                if (!mIsConnected) {
                     result.error("99", "Can't connect to printer!", null);
                     return;
                 }
 
-                Html2Bitmap build = new Html2Bitmap.Builder()
+                Bitmap b = new Html2Bitmap.Builder()
                         .setContext(mContext)
                         .setContent(WebViewContent.html(content))
                         .setStrictMode(true)
-                        .setTextZoom(scale)
                         .setBitmapWidth(bitmapWidth)
-                        .build();
-                Bitmap b = build.getBitmap();
+                        .setTextZoom(scale)
+                        .build()
+                        .getBitmap();
+
+//                try{
+//                    String path = mContext.getDataDir().toString() + "/pic.png";
+//                    FileOutputStream stream = new FileOutputStream(path);
+//                    b.compress(Bitmap.CompressFormat.PNG, 100, stream);
+//                    stream.close();
+//                    Log.d(TAG, "write file " + path);
+//                }catch (Exception e){
+//                    e.printStackTrace();
+//                }
 
                 CmdFactory escFac = new EscFactory();
                 Cmd escCmd = escFac.create();
@@ -187,6 +200,7 @@ public class PrinterPlugin implements FlutterPlugin, MethodCallHandler {
 
                 BitmapSetting bitmapSetting = new BitmapSetting();
                 bitmapSetting.setBmpPrintMode(BmpPrintMode.MODE_SINGLE_COLOR);
+
                 try {
                     escCmd.append(escCmd.getBitmapCmd(bitmapSetting, b));
                 } catch (SdkException e) {
