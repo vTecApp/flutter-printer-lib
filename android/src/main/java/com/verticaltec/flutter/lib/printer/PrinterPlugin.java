@@ -109,7 +109,6 @@ public class PrinterPlugin implements FlutterPlugin, MethodCallHandler {
     }
 
     private void initPrinter() {
-        mPrinterSignal = new CountDownLatch(1);
         mPrinterFactory = new UniversalPrinterFactory();
         mRtPrinter = mPrinterFactory.create();
 
@@ -161,6 +160,7 @@ public class PrinterPlugin implements FlutterPlugin, MethodCallHandler {
             mRtPrinter.setPrinterInterface(printerInterface);
 
             try {
+                mPrinterSignal = new CountDownLatch(1);
                 mRtPrinter.connect(wiFiConfigBean);
                 Log.d(TAG, "Before await");
                 mPrinterSignal.await(); // wait for connection signal
