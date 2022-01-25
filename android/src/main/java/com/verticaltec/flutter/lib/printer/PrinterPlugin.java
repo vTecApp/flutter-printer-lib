@@ -162,9 +162,7 @@ public class PrinterPlugin implements FlutterPlugin, MethodCallHandler {
             try {
                 mPrinterSignal = new CountDownLatch(1);
                 mRtPrinter.connect(wiFiConfigBean);
-                Log.d(TAG, "Before await");
                 mPrinterSignal.await(); // wait for connection signal
-                Log.d(TAG, "After await");
 
                 if (!mIsConnected) {
                     result.error("99", "Can't connect to printer!", null);
